@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "dry-run, or the existing version tag selected as this workflow's ref"
+        required: true
+        default: dry-run
+        type: string
+      acceptance_checked:
+        description: "Physical acceptance checks completed; real publication approved"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: streamcam-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate before any publication
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          ACCEPTANCE_CHECKED: ${{ inputs.acceptance_checked }}
+          TAP_TOKEN_PRESENT: ${{ inputs.tag != 'dry-run' && secrets.HOMEBREW_TAP_TOKEN != '' }}
+        run: python3 scripts/validate-release.py
+      - name: Hardware-free checks
+        run: ./test.sh
+      - name: Build, sign, package and generate cask
+        run: python3 scripts/package-release.py
+      - name: Validate the generated cask syntax
+        run: ruby -c .build/releases/streamcam-controls.rb
+      - name: Upload dry-run package only
+        if: inputs.tag == 'dry-run'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: streamcam-controls-dry-run
+          path: .build/releases/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Publish GitHub release
+        if: inputs.tag != 'dry-run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          VERSION=$(python3 -c 'import json; print(json.load(open(".build/releases/release.json"))["version"])')
+          DMG=$(python3 -c 'import json; print(json.load(open(".build/releases/release.json"))["dmg"])')
+          NOTES="$RUNNER_TEMP/release-notes.txt"
+          cat > "$NOTES" <<'EOF'
+          Native Apple Silicon app with bundled streamcam CLI. Ad-hoc signed, not notarized.
+          macOS may require Open Anyway approval. Grant Camera access when opening the preview.
+
+          Install after the Homebrew tap update completes:
+          brew install --cask dreamorosi/tap/streamcam-controls
+          EOF
+          gh release create "$RELEASE_TAG" --verify-tag --title "StreamCam Controls $VERSION" \
+            --notes-file "$NOTES" ".build/releases/$DMG" ".build/releases/$DMG.sha256" \
+            .build/releases/streamcam-controls.rb
+      - name: Checkout personal tap after release publication
+        if: inputs.tag != 'dry-run'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: dreamorosi/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: .build/tap
+          persist-credentials: true
+      - name: Publish only this cask to the tap
+        if: inputs.tag != 'dry-run'
+        run: |
+          VERSION=$(python3 -c 'import json; print(json.load(open(".build/releases/release.json"))["version"])')
+          mkdir -p .build/tap/Casks
+          cp .build/releases/streamcam-controls.rb .build/tap/Casks/streamcam-controls.rb
+          git -C .build/tap config user.name "github-actions[bot]"
+          git -C .build/tap config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C .build/tap add Casks/streamcam-controls.rb
+          if git -C .build/tap diff --cached --quiet; then
+            echo "Cask already current"
+          else
+            git -C .build/tap commit -m "streamcam-controls $VERSION"
+            git -C .build/tap push
+          fi

@@ -82,8 +82,9 @@ Interactive CLI calls can use `--device-id ID` for the same protection.
 ./test.sh
 ```
 
-This runs Rust formatting, Clippy, 16 fake-transport tests, and 11 Swift checks
-using controlled backend replies. It does not access a camera or alter settings.
+This runs Rust formatting, Clippy, 16 fake-transport tests, 11 Swift checks
+using controlled backend replies, and seven release-validation/cask tests. It
+does not access a camera or alter settings.
 Coverage includes range validation, pan/tilt preservation, defaults, white-
 balance mode ordering/failure recovery, stale callbacks, coalesced writes,
 camera identity, capture policy, and helper-process deadlines.
@@ -155,10 +156,12 @@ yielding is not a requirement and is not simulated with process/focus guesses.
 
 GitHub CI runs the hardware-free checks and builds/verifies an Apple Silicon
 app bundle without opening a camera. It does not publish a release or update
-a Homebrew tap.
+a Homebrew tap. See `RELEASING.md` for the separately dispatched packaging,
+tagging and release process.
 
-There are no persisted presets, installer, cask, release pipeline, or
-notarization yet. This project remains separate from the working Litra CLI.
+Local packaging generates a DMG and personal-tap cask. They have not been
+published. There are no persisted presets or notarization yet. This project
+remains separate from the working Litra CLI.
 
 ## License
 
