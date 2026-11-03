@@ -107,6 +107,18 @@ enum AppTests {
                 let count = await backend.requests.count
                 try require(count == 2 && model.error == nil && !model.busy, "Closed panel issued a queued write or stale error")
             }
+            try await run("reopening changes the SwiftUI preview renderer identity") {
+                let backend = FakeBackend()
+                let model = try await openedModel(backend)
+                let first = model.previewRendererID
+                model.closed()
+                model.opened(startPreview: false)
+                try await waitFor { await backend.requests.count == 2 }
+                await backend.reply(1, cameraStatus())
+                try await waitFor { !model.busy }
+                try require(model.previewRendererID > first, "Reopened panel reused the stale video renderer")
+                model.closed()
+            }
             try await run("rapid settings coalesce to the last requested value") {
                 let backend = FakeBackend()
                 let model = try await openedModel(backend)
@@ -171,6 +183,12 @@ enum AppTests {
                 """.utf8)
                 let status = try JSONDecoder().decode(CameraStatus.self, from: data)
                 try require(status.controls["zoom"]?.defaultValue == nil, "Missing default was guessed")
+            }
+            try await run("transient infinite preview geometry is safe to export") {
+                let rectangle = DiagnosticGeometry.rect(.null)
+                try require(rectangle.values.allSatisfy(\.isFinite), "Non-finite geometry escaped")
+                try require(JSONSerialization.isValidJSONObject(rectangle), "Invalid diagnostic JSON")
+                _ = try JSONSerialization.data(withJSONObject: rectangle)
             }
             try await run("helper subprocess returns data and propagates stderr") {
                 let data = try HelperProcess.run(executable: URL(fileURLWithPath: "/usr/bin/printf"), arguments: ["hello"])
