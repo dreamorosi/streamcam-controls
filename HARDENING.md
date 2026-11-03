@@ -13,7 +13,7 @@
 - 16 hardware-free Rust tests cover descriptors, ambiguity, malformed data,
   ranges/steps, signed extremes, pan/tilt, white balance, partial failures,
   defaults and identity.
-- 11 hardware-free Swift checks cover capture-policy decisions, stale starts,
+- 13 hardware-free Swift checks cover capture-policy decisions, stale starts,
   late results/errors, coalesced settings, closed-panel behavior, partial-state
   rereads, decoding and helper deadlines.
 - A regression first reproduced an older periodic read repainting a newer
@@ -47,13 +47,20 @@ was retired. Start/Stop preview is the reliable explicit control. No process
 existence, focus heuristic, private API or extra permission was added. A real
 capture failure, disconnection or revoked permission still stops our session.
 
+## User-confirmed physical checks
+
+- Sleep/wake recovery works in the user's test.
+- Defaults applies the camera's default settings in the user's test.
+- After fixing renderer reuse, the image stayed full-sized through 20 panel
+  close/reopen cycles. Previously it visibly shrank despite unchanged geometry.
+
+These observations do not claim every capture-app or sleep-state combination
+was exercised. No original-settings restore round trip was reported.
+
 ## Needs physical acceptance
 
 - Unplug/replug while the panel is visible and while a write is pending.
-- Sleep/wake with preview active, stopped and another camera app open.
 - Deny/revoke Camera permission for this app, then allow it again.
-- Actual defaults round trip under the new name. Engine behavior is tested with
-  fakes; earlier hardware controls were validated individually.
 
 No zoom, pan or color writes were executed by the naming/hardening tests.
 Preview startup selects its already-tested native capture format as usual.

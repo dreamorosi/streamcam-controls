@@ -140,3 +140,35 @@ still release our session. No process/focus heuristics or new permissions.
 See `HARDENING.md` for physical tests still needing acceptance before a release.
 This naming/hardening pass created no GitHub repository, push, merge, release
 or cask. Source publication follows under separate user approval.
+
+## Repeated-open preview regression
+
+Before the first release, the user reported a growing black envelope when
+closing/reopening the panel. A screenshot and a 20-cycle live test confirmed
+the camera image shrank inside a stable preview rectangle. The public video
+rectangle, layer frame, and renderer sublayer geometry all stayed full-sized,
+so geometry-only checks incorrectly passed the visible failure.
+
+The first hypothesis was stale renderer state across capture-input replacement.
+A failing Swift test showed that reopening reused the same renderer identity.
+Each panel open now changes the SwiftUI view identity, creating a fresh native
+preview layer; dismantling clears the old layer's session and removes it.
+Capture format and camera controls were left unchanged for this experiment.
+
+With that change, the user confirmed that the image stayed full-sized through
+20 close/reopen cycles. This supports renderer reuse as the cause on this
+setup, without claiming the private framework's exact scaling mechanism.
+The hardware-free lifecycle test now passes. The geometry loop checks new
+renderer generations, and its human-in-the-loop wrapper records the actual
+visual verdict without saving frames. Temporary sublayer dumps were removed.
+
+Cleanup also exposed a diagnostic-only startup crash: the preview conversion
+could return a null/infinite rectangle before camera frames were ready, and
+Foundation's JSON writer raised an Objective-C exception. Diagnostic rectangle
+values are now sanitized, with a hardware-free JSON regression check. After
+Camera permission was allowed for the rebuilt ad-hoc app, six more reopen
+cycles passed with fresh renderers and stable geometry.
+
+Future capture-lifecycle changes need repeated visual restart acceptance, not
+just correct public rectangles. Release remains paused until this fix is
+reviewed and integrated; no tag or public release was created.

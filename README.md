@@ -82,7 +82,7 @@ Interactive CLI calls can use `--device-id ID` for the same protection.
 ./test.sh
 ```
 
-This runs Rust formatting, Clippy, 16 fake-transport tests, 11 Swift checks
+This runs Rust formatting, Clippy, 16 fake-transport tests, 13 Swift checks
 using controlled backend replies, and seven release-validation/cask tests. It
 does not access a camera or alter settings.
 Coverage includes range validation, pan/tilt preservation, defaults, white-
@@ -109,6 +109,18 @@ own window/preview geometry. They do not take screenshots or write camera
 settings. The first check requires Camera permission and verifies an active,
 visible preview connection. The second checks that closing releases capture.
 Diagnostic files live in the ignored `.build` directory.
+
+Repeated-open regression:
+
+```sh
+python3 scripts/check-preview-reopens.py --cycles 20
+```
+
+The inspection build repeatedly closes/reopens its own panel without recording
+frames or changing control settings. Each open must create a new renderer and
+keep stable video geometry. The user also checks that the actual image does not
+shrink: public video rectangles can look correct even when rendered pixels do
+not. `scripts/reopen-visual-check.sh` records that visual verdict as metadata.
 
 The preview uses the active video format's aspect ratio, retaining the whole
 frame rather than adding a preview-only crop. The Framing/Color switch has no

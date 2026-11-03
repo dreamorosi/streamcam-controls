@@ -27,6 +27,16 @@ struct AppError: LocalizedError {
     var errorDescription: String? { message }
 }
 
+enum DiagnosticGeometry {
+    static func rect(_ value: CGRect) -> [String: Double] {
+        let values = ["x": Double(value.minX), "y": Double(value.minY),
+            "width": Double(value.width), "height": Double(value.height)]
+        // A newly attached preview can temporarily return a null/infinite
+        // rectangle. NSJSONSerialization raises an Obj-C exception for those.
+        return values.mapValues { $0.isFinite ? $0 : 0 }
+    }
+}
+
 protocol CameraCommandRunning: Sendable {
     func run(_ arguments: [String], expectedDeviceID: String?) async throws -> CameraStatus
 }
@@ -195,6 +205,7 @@ final class CameraModel: ObservableObject {
     @Published var busy = false
     @Published var previewRunning = false
     @Published var previewAspectRatio = 16.0 / 9.0
+    @Published var previewRendererID = 0
     @Published var error: String?
     @Published var tab = "Framing"
     @Published var confirmDefaults = false
@@ -234,6 +245,9 @@ final class CameraModel: ObservableObject {
         openTask?.cancel()
         monitorTask?.cancel()
         visible = true
+        // Input replacement during capture restart can leave a reused preview
+        // renderer with stale scaling despite unchanged public video rectangles.
+        previewRendererID += 1
         panelGeneration += 1
         let generation = panelGeneration
         error = nil
@@ -468,6 +482,11 @@ final class PreviewView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    func detach() {
+        previewLayer.session = nil
+        previewLayer.removeFromSuperlayer()
+    }
+
     override func layout() {
         super.layout()
         CATransaction.begin()
@@ -481,6 +500,7 @@ struct CameraPreview: NSViewRepresentable {
     let session: AVCaptureSession
     func makeNSView(context: Context) -> PreviewView { PreviewView(session: session) }
     func updateNSView(_ nsView: PreviewView, context: Context) {}
+    static func dismantleNSView(_ nsView: PreviewView, coordinator: Void) { nsView.detach() }
 }
 
 struct CameraPanel: View {
@@ -501,7 +521,7 @@ struct CameraPanel: View {
             }
 
             ZStack {
-                CameraPreview(session: model.preview.session)
+                CameraPreview(session: model.preview.session).id(model.previewRendererID)
                 if !model.previewRunning {
                     Color.black
                     VStack(spacing: 8) {
@@ -636,11 +656,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    @objc private func inspectionRequested(_ notification: Notification) { inspectWindow() }
+    @objc private func inspectionRequested(_ notification: Notification) {
+        if notification.object as? String == "cycle", CommandLine.arguments.contains("--inspect-open") {
+            if panel.isVisible { panel.performClose(nil) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                self.togglePanel()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.inspectWindow() }
+            }
+        } else { inspectWindow() }
+    }
 
     private func inspectWindow(closed: Bool = false) {
         func rect(_ value: NSRect) -> [String: Double] {
-            ["x": value.minX, "y": value.minY, "width": value.width, "height": value.height]
+            DiagnosticGeometry.rect(value)
         }
         func findPreview(_ view: NSView) -> PreviewView? {
             if let preview = view as? PreviewView { return preview }
@@ -673,6 +701,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 output["previewLayer"] = rect(preview.videoFrame)
                 output["previewVideoRect"] = rect(preview.videoRect)
                 output["previewConnectionActive"] = preview.connectionActive
+                output["previewRendererID"] = model.previewRendererID
             }
         }
         if let input = model.preview.session.inputs.first as? AVCaptureDeviceInput {
