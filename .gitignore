@@ -1,0 +1,3 @@
+/.build/
+/backend/target/
+.DS_Store

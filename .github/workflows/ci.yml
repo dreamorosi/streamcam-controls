@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Check Apple Silicon build tools
+        run: |
+          test "$(uname -m)" = arm64
+          xcrun --find swiftc
+          xcrun --show-sdk-path
+          rustup show active-toolchain
+      - name: Run hardware-free checks
+        run: ./test.sh
+      - name: Build and verify the local app bundle
+        run: ./run.sh --build-only
+      - name: Smoke-test the bundled CLI without camera access
+        run: |
+          ".build/StreamCam Controls.app/Contents/MacOS/streamcam" --version
+          ".build/StreamCam Controls.app/Contents/MacOS/streamcam" --help
+          codesign --verify --deep --strict ".build/StreamCam Controls.app"
