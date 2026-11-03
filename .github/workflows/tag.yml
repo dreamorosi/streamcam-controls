@@ -1,0 +1,37 @@
+name: Tag current version
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag-current-version
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Test before tagging
+        run: ./test.sh
+      - name: Create and push only the current version tag
+        run: |
+          VERSION=$(cargo metadata --no-deps --locked --format-version 1 --manifest-path backend/Cargo.toml | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')
+          APP_VERSION=$(plutil -extract CFBundleShortVersionString raw -o - app/Info.plist)
+          test "$VERSION" = "$APP_VERSION"
+          python3 -c 'import sys; sys.path.insert(0, "scripts"); from release_tools import validate_version; validate_version(sys.argv[1])' "$VERSION"
+          TAG="v$VERSION"
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists" >&2
+            exit 1
+          fi
+          git tag "$TAG"
+          git push origin "refs/tags/$TAG"
+          echo "Tagged $TAG. After approval, dispatch Release on ref $TAG with tag=$TAG." >> "$GITHUB_STEP_SUMMARY"
