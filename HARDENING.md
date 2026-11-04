@@ -51,16 +51,21 @@ capture failure, disconnection or revoked permission still stops our session.
 
 - Sleep/wake recovery works in the user's test.
 - Defaults applies the camera's default settings in the user's test.
+- Unplug/replug recovery works in the user's test, confirmed on 2026-11-04.
+- Preview stayed off with Camera access denied and recovered after access was
+  allowed again, confirmed by the user on 2026-11-04.
 - After fixing renderer reuse, the image stayed full-sized through 20 panel
   close/reopen cycles. Previously it visibly shrank despite unchanged geometry.
 
 These observations do not claim every capture-app or sleep-state combination
 was exercised. No original-settings restore round trip was reported.
+Unplugging during an in-flight write was not separately reported.
 
-## Needs physical acceptance
+## Release acceptance
 
-- Unplug/replug while the panel is visible and while a write is pending.
-- Deny/revoke Camera permission for this app, then allow it again.
+The agreed baseline acceptance checks are complete. This is acceptance of the
+tested StreamCam/Mac setup, not a claim of coverage for every device, app or
+sleep-state combination. Publishing still requires separate approval.
 
 No zoom, pan or color writes were executed by the naming/hardening tests.
 Preview startup selects its already-tested native capture format as usual.
