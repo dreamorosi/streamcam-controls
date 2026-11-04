@@ -13,6 +13,7 @@ class ReleaseToolsTests(unittest.TestCase):
                 validate_version(value)
 
     def test_versions_must_agree(self):
+        self.assertEqual(check_versions('1.0.0', '1.0.0'), '1.0.0')
         self.assertEqual(check_versions('0.1.0', '0.1.0'), '0.1.0')
         with self.assertRaises(ValueError):
             check_versions('0.1.0', '0.2.0')
@@ -32,6 +33,7 @@ class ReleaseToolsTests(unittest.TestCase):
                 validate_request('v0.1.0', 'refs/tags/v0.1.0', '0.1.0', checked, token)
 
     def test_cask_targets_app_and_bundled_cli(self):
+        self.assertEqual(archive_name('1.0.0'), 'StreamCam-Controls-1.0.0-arm64.dmg')
         cask = render_cask('0.1.0', 'a' * 64)
         self.assertIn('app "StreamCam Controls.app"', cask)
         self.assertIn('binary "#{appdir}/StreamCam Controls.app/Contents/MacOS/streamcam"', cask)

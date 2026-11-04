@@ -6,7 +6,8 @@ There is no Developer ID or notarization in this first distribution path.
 
 ## Before the first release
 
-Finish the physical acceptance checks in `HARDENING.md`:
+The agreed baseline checks in `HARDENING.md` were confirmed on 2026-11-04.
+For later capture or control changes, repeat the relevant physical checks:
 
 - Unplug/replug while the panel is visible. Controls should become unavailable,
   then read the reconnected camera rather than applying stale queued values.
@@ -39,7 +40,7 @@ upstream license texts for the selected Rust dependency graph before signing.
 
 Outputs under `.build/releases/`:
 
-- `StreamCam-Controls-0.1.0-arm64.dmg`, containing the app and an Applications link
+- `StreamCam-Controls-1.0.0-arm64.dmg`, containing the app and an Applications link
 - The DMG's `.sha256` file
 - `streamcam-controls.rb`, generated with that exact checksum
 - `release.json`, used by the workflow
@@ -70,9 +71,9 @@ large caches.
 Obtain approval before either of these remote-writing steps:
 
 1. Run **Tag current version** on `main`. It tests the project, checks the
-   app/Cargo version match, and pushes only `v0.1.0`. It changes no source version
+   app/Cargo version match, and pushes only `v1.0.0`. It changes no source version
    and publishes no release. Existing tags are rejected.
-2. Run **Release** with workflow ref `v0.1.0`, input `tag=v0.1.0`, and the
+2. Run **Release** with workflow ref `v1.0.0`, input `tag=v1.0.0`, and the
    acceptance/publication checkbox checked. Ref and version mismatches, missing
    approval attestation and a missing token fail before publishing.
 
